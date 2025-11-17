@@ -1,0 +1,92 @@
+---
+title: "Homework_week4"
+author: "22073739 Zack Zheng"
+date: "2025-10-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+library(readr)
+library(dplyr)
+library(tidyr)
+library(countrycode)
+library(sf)
+library(tmap)
+
+#Load Gender Inequality Data (GII)
+gii_raw <- read_csv("homework4_data/gii_data.csv")
+
+gii_clean <- gii_raw %>%
+filter(indicatorCode == "gii") %>%
+select(country, year, value)
+
+#Convert 'country' to ISO3 Code
+gii_clean <- gii_clean %>%
+mutate(
+iso3 = countrycode(country, "country.name", "iso3c")
+)
+
+#Transform to Wide Format (2010 vs 2019)
+I reshaped the table so that each country has gii_2010 and gii_2019.
+gii_wide <- gii_clean %>%
+filter(year %in% c(2010, 2019)) %>%
+pivot_wider(
+names_from = year,
+values_from = value,
+names_prefix = "gii_"
+) %>%
+select(country, iso3, gii_2010, gii_2019)
+
+# Calculate differences
+
+gii_wide <- gii_wide %>%
+mutate(GII_diff = gii_2019 - gii_2010)
+
+
+#Load World Country Boundaries (GeoJSON)
+world <- st_read("homework4_data/World_Countries_(Generalized)_9029012925078512962.geojson")
+
+
+#Convert map country names to ISO3 by 'countrycode'and joining GII Data.
+world_clean <- world %>%
+mutate(iso3 = countrycode(COUNTRY, "country.name", "iso3c"))
+world_gii <- world_clean %>%
+left_join(gii_wide, by = "iso3")
+#checking if it's successful
+summary(world_gii$gii_2010)
+summary(world_gii$gii_2019)
+summary(world_gii$GII_diff)
+
+#Mapping GII Values
+tmap_mode("plot")
+#GII 2010 map
+tm_shape(world_gii) +
+tm_polygons(
+col = "gii_2010",
+palette = "RdBu",
+style = "quantile",
+title = "GII 2010"
+) +
+tm_layout(legend.outside = TRUE)
+
+#GII 2019 map
+tm_shape(world_gii) +
+tm_polygons(
+col = "gii_2019",
+palette = "RdBu",
+style = "quantile",
+title = "GII 2019"
+) +
+tm_layout(legend.outside = TRUE)
+
+#GII change between 2010,2019 map
+tm_shape(world_gii) +
+tm_polygons(
+col = "GII_diff",
+palette = "-RdBu",
+style = "quantile",
+title = "GII Change (2010–2019)"
+) +
+tm_layout(legend.outside = TRUE)
